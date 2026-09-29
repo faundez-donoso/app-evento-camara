@@ -77,7 +77,6 @@
             opacity: 0.9;
         }
 
-        /* Panel de vista previa de captura */
         .preview-card {
             display: none;
             background-color: var(--card-bg);
@@ -88,9 +87,9 @@
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
         }
 
+        /* Ajuste de contenedor dinámico para evitar pixelado por estiramiento */
         .media-container {
             width: 100%;
-            max-height: 300px;
             border-radius: 12px;
             overflow: hidden;
             background-color: #000;
@@ -102,9 +101,10 @@
 
         .media-container img, .media-container video {
             width: 100%;
-            height: 100%;
-            max-height: 300px;
-            object-fit: contain;
+            height: auto;
+            max-height: 60vh;
+            border-radius: 12px;
+            display: block;
         }
 
         .file-info {
@@ -142,7 +142,6 @@
         <h1 id="eventName">Cargando...</h1>
         <div class="subtitle">Captura el momento</div>
         
-        <!-- Input HTML5 nativo invisible para invocación directa de cámara -->
         <input type="file" id="cameraInput" accept="image/*,video/*" capture="environment" style="display: none;">
 
         <button class="camera-btn" id="openCameraBtn">
@@ -153,7 +152,6 @@
             ABRIR CÁMARA
         </button>
 
-        <!-- Tarjeta de confirmación y detalles del archivo original -->
         <div class="preview-card" id="previewCard">
             <span class="badge-original">✓ Archivo Original Capturado</span>
             <div class="media-container" id="mediaContainer"></div>
@@ -182,22 +180,17 @@
         const mediaContainer = document.getElementById('mediaContainer');
         const fileInfo = document.getElementById('fileInfo');
 
-        // Abrir la cámara nativa al pulsar el botón
         openCameraBtn.addEventListener('click', () => {
             cameraInput.click();
         });
 
-        // Evento que se dispara al finalizar la captura nativa
         cameraInput.addEventListener('change', (event) => {
             const files = event.target.files;
             if (!files || files.length === 0) return;
 
-            const file = files[0]; // Objeto File original proporcionado por el sistema
-
-            // Limpiar vista previa anterior
+            const file = files[0];
             mediaContainer.innerHTML = '';
             
-            // Generar URL temporal local en memoria sin recodificar ni modificar el blob
             const objectUrl = URL.createObjectURL(file);
 
             if (file.type.startsWith('image/')) {
@@ -208,14 +201,13 @@
                 const video = document.createElement('video');
                 video.src = objectUrl;
                 video.controls = true;
-                video.autoplay = false;
+                video.playsInline = true; // Para reproducción fluida nativa en iOS
+                video.preload = 'metadata';
                 mediaContainer.appendChild(video);
             }
 
-            // Formatear tamaño del archivo en MB
             const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
 
-            // Mostrar metadatos originales sin alterar
             fileInfo.innerHTML = `
                 <strong>Archivo:</strong> ${file.name}<br>
                 <strong>Tipo:</strong> ${file.type || 'Desconocido'}<br>
@@ -223,8 +215,6 @@
             `;
 
             previewCard.style.display = 'block';
-            
-            // Scroll suave hacia la vista previa
             previewCard.scrollIntoView({ behavior: 'smooth' });
         });
     </script>
