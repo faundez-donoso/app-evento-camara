@@ -86,7 +86,27 @@
             box-shadow: none;
         }
 
-        .camera-btn:active {
+        .upload-btn {
+            background-color: var(--success);
+            color: #ffffff;
+            border: none;
+            border-radius: 50px;
+            padding: 1.2rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            cursor: pointer;
+            margin-top: 1rem;
+            box-shadow: 0 4px 20px rgba(52, 199, 89, 0.3);
+            transition: transform 0.2s ease, opacity 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .camera-btn:active, .upload-btn:active {
             transform: scale(0.96);
             opacity: 0.9;
         }
@@ -174,7 +194,6 @@
         <h1 id="eventName">Cargando...</h1>
         <div class="subtitle">Captura el momento</div>
         
-        <!-- Inputs limpios para permitir re-selección de fotos -->
         <input type="file" id="photoInput" accept="image/*" capture="environment" style="display: none;">
         <input type="file" id="fileInput" accept="image/*,video/*" multiple style="display: none;">
 
@@ -188,9 +207,14 @@
         </div>
 
         <div class="preview-card" id="previewCard">
-            <span class="badge-original" id="badgeText">✓ 0/10 Archivos Seleccionados</span>
+            <span class="badge-original" id="badgeText">✓ Archivos Seleccionados</span>
             <div class="media-grid" id="mediaGrid"></div>
             <div class="file-info" id="fileSummary"></div>
+            
+            <!-- Botón de Envío -->
+            <button class="upload-btn" id="uploadBtn">
+                🚀 ENVIAR AL ÁLBUM
+            </button>
         </div>
 
         <p class="privacy-note">Las fotos y videos que captures serán enviados al álbum digital del evento.</p>
@@ -205,8 +229,7 @@
             logoEmoji: "✨"
         };
 
-        const MAX_FILES = 10;
-        let selectedFiles = []; // Arreglo global acumulativo
+        let selectedFiles = []; // Arreglo ilimitado de archivos
 
         document.getElementById('eventName').textContent = CONFIG.eventName;
         document.getElementById('eventLogo').textContent = CONFIG.logoEmoji;
@@ -218,35 +241,21 @@
         const mediaGrid = document.getElementById('mediaGrid');
         const fileSummary = document.getElementById('fileSummary');
         const badgeText = document.getElementById('badgeText');
+        const uploadBtn = document.getElementById('uploadBtn');
 
         document.getElementById('takePhotoBtn').addEventListener('click', () => {
-            if (selectedFiles.length >= MAX_FILES) {
-                alert(`Has alcanzado el límite máximo de ${MAX_FILES} archivos.`);
-                return;
-            }
-            photoInput.value = ''; // Reset para activar cambio siempre
+            photoInput.value = '';
             photoInput.click();
         });
 
         document.getElementById('selectMediaBtn').addEventListener('click', () => {
-            if (selectedFiles.length >= MAX_FILES) {
-                alert(`Has alcanzado el límite máximo de ${MAX_FILES} archivos.`);
-                return;
-            }
-            fileInput.value = ''; // Reset para activar cambio siempre
+            fileInput.value = '';
             fileInput.click();
         });
 
         function addFiles(newFiles) {
             const incoming = Array.from(newFiles);
-            const availableSlots = MAX_FILES - selectedFiles.length;
-
-            if (incoming.length > availableSlots) {
-                alert(`Solo puedes agregar ${availableSlots} archivo(s) más. Se aplicará el límite de ${MAX_FILES} archivos en total.`);
-            }
-
-            const filesToAdd = incoming.slice(0, availableSlots);
-            selectedFiles = selectedFiles.concat(filesToAdd);
+            selectedFiles = selectedFiles.concat(incoming);
             renderPreview();
         }
 
@@ -271,7 +280,6 @@
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'media-item';
 
-                // Botón para eliminar archivo individual
                 const removeBtn = document.createElement('button');
                 removeBtn.className = 'remove-btn';
                 removeBtn.textContent = '✕';
@@ -294,10 +302,10 @@
             });
 
             const totalSizeMB = (totalSizeBytes / (1024 * 1024)).toFixed(2);
-            badgeText.textContent = `✓ ${selectedFiles.length}/${MAX_FILES} Archivos listos (Calidad Original)`;
+            badgeText.textContent = `✓ ${selectedFiles.length} ${selectedFiles.length === 1 ? 'archivo listo' : 'archivos listos'} (Calidad Original)`;
 
             fileSummary.innerHTML = `
-                <strong>Archivos en cola:</strong> ${selectedFiles.length} de ${MAX_FILES}<br>
+                <strong>Archivos en cola:</strong> ${selectedFiles.length}<br>
                 <strong>Peso total acumulado:</strong> ${totalSizeMB} MB
             `;
 
@@ -311,6 +319,11 @@
 
         fileInput.addEventListener('change', (e) => {
             if (e.target.files && e.target.files.length > 0) addFiles(e.target.files);
+        });
+
+        // Evento temporal para probar la acción del botón de envío
+        uploadBtn.addEventListener('click', () => {
+            alert(`Listos para enviar ${selectedFiles.length} archivo(s). Procediendo a conectar con Google Drive...`);
         });
     </script>
 </body>
