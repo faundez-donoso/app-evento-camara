@@ -200,23 +200,6 @@
             font-weight: 500;
             text-align: center;
         }
-
-        .progress-container {
-            display: none;
-            width: 100%;
-            background-color: #2c2c2e;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-top: 1rem;
-            height: 12px;
-        }
-
-        .progress-bar {
-            width: 0%;
-            height: 100%;
-            background-color: var(--success);
-            transition: width 0.15s linear;
-        }
     </style>
 </head>
 <body>
@@ -242,10 +225,6 @@
             <div class="media-grid" id="mediaGrid"></div>
             <div class="file-info" id="fileSummary"></div>
             
-            <div class="progress-container" id="progressContainer">
-                <div class="progress-bar" id="progressBar"></div>
-            </div>
-
             <button class="upload-btn" id="uploadBtn">
                 🚀 ENVIAR AL ÁLBUM
             </button>
@@ -259,7 +238,7 @@
         const CONFIG = {
             eventName: "Cumpleaños José Daniel",
             eventDate: "2026-09-29",
-            driveFolderId: "1BTCQRh_eZUdGD0wqT6M9yzuR_Kn_1Y9X", // Asegúrate de colocar el ID de tu carpeta de Drive
+            driveFolderId: "1BTCQRh_eZUdGD0wqT6M9yzuR_Kn_1Y9X", // Pón aquí el ID de tu carpeta de Drive
             scriptUrl: "https://script.google.com/macros/s/AKfycbzudyCCbIlBvof2h4I2EmqQx92aEuvTx_LX_xNuPAIX_-QHeKG1jhP5tcsqtdDhCdDdFg/exec",
             logoEmoji: "✨"
         };
@@ -278,8 +257,6 @@
         const badgeText = document.getElementById('badgeText');
         const uploadBtn = document.getElementById('uploadBtn');
         const statusMsg = document.getElementById('statusMsg');
-        const progressContainer = document.getElementById('progressContainer');
-        const progressBar = document.getElementById('progressBar');
 
         document.getElementById('takePhotoBtn').addEventListener('click', () => {
             photoInput.value = '';
@@ -348,8 +325,6 @@
             `;
 
             statusMsg.textContent = '';
-            progressContainer.style.display = 'none';
-            progressBar.style.width = '0%';
             uploadBtn.disabled = false;
             uploadBtn.textContent = '🚀 ENVIAR AL ÁLBUM';
 
@@ -374,85 +349,51 @@
             });
         }
 
-        function uploadSingleFileWithProgress(filePayload, onProgress) {
-            return new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest();
-                
-                xhr.upload.addEventListener('progress', (e) => {
-                    if (e.lengthComputable) {
-                        onProgress(e.loaded, e.total);
-                    }
-                });
-
-                xhr.addEventListener('readystatechange', () => {
-                    if (xhr.readyState === 4) {
-                        // Estado 4 indica finalización completa de la petición HTTP
-                        resolve();
-                    }
-                });
-
-                xhr.addEventListener('error', () => resolve());
-
-                xhr.open('POST', CONFIG.scriptUrl, true);
-                xhr.setRequestHeader('Content-Type', 'text/plain;charset=utf-8');
-
-                xhr.send(JSON.stringify({
-                    folderId: CONFIG.driveFolderId,
-                    files: [filePayload]
-                }));
-            });
-        }
-
         uploadBtn.addEventListener('click', async () => {
             if (selectedFiles.length === 0) return;
 
             uploadBtn.disabled = true;
-            uploadBtn.textContent = '⏳ Subiendo archivos...';
-            progressContainer.style.display = 'block';
-            progressBar.style.width = '0%';
+            uploadBtn.textContent = '⏳ Enviando al álbum...';
             statusMsg.style.color = 'var(--text-muted)';
 
-            const totalFiles = selectedFiles.length;
-
             try {
-                for (let i = 0; i < totalFiles; i++) {
+                for (let i = 0; i < selectedFiles.length; i++) {
                     const file = selectedFiles[i];
-                    statusMsg.textContent = `Preparando archivo ${i + 1} de ${totalFiles}...`;
+                    statusMsg.textContent = `Enviando archivo ${i + 1} de ${selectedFiles.length}...`;
                     
                     const base64Data = await fileToBase64(file);
                     
                     const payload = {
-                        name: file.name || `captura_${Date.now()}_${i}.${file.type.split('/')[1] || 'jpg'}`,
-                        type: file.type,
-                        base64: base64Data
+                        folderId: CONFIG.driveFolderId,
+                        files: [{
+                            name: file.name || `captura_${Date.now()}_${i}.${file.type.split('/')[1] || 'jpg'}`,
+                            type: file.type,
+                            base64: base64Data
+                        }]
                     };
 
-                    await uploadSingleFileWithProgress(payload, (loadedBytes, totalBytes) => {
-                        const loadedMB = (loadedBytes / (1024 * 1024)).toFixed(2);
-                        const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
-                        const filePercent = Math.round((loadedBytes / totalBytes) * 100);
-
-                        const globalPercent = Math.round(((i + (loadedBytes / totalBytes)) / totalFiles) * 100);
-                        progressBar.style.width = `${globalPercent}%`;
-
-                        statusMsg.textContent = `Subiendo archivo ${i + 1} de ${totalFiles}: ${loadedMB} MB / ${totalMB} MB (${filePercent}%)`;
+                    // Petición directa y robusta con fetch no-cors
+                    await fetch(CONFIG.scriptUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify(payload)
                     });
                 }
 
-                progressBar.style.width = '100%';
                 statusMsg.style.color = 'var(--success)';
-                statusMsg.textContent = '🎉 ¡Archivos subidos con éxito al álbum!';
+                statusMsg.textContent = '🎉 ¡Archivos enviados con éxito al álbum!';
                 uploadBtn.textContent = '✓ ENVIADO';
                 selectedFiles = [];
-                
+
                 setTimeout(() => {
                     previewCard.style.display = 'none';
-                }, 3500);
+                }, 3000);
 
             } catch (err) {
                 console.error(err);
                 statusMsg.style.color = 'var(--danger)';
-                statusMsg.textContent = '❌ Error al subir. Inténtalo de nuevo.';
+                statusMsg.textContent = '❌ Ocurrió un inconveniente al enviar.';
                 uploadBtn.disabled = false;
                 uploadBtn.textContent = '🚀 REINTENTAR ENVIAR';
             }
