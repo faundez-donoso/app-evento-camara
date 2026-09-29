@@ -111,6 +111,13 @@
             opacity: 0.9;
         }
 
+        .upload-btn:disabled {
+            background-color: #555555;
+            box-shadow: none;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
         .preview-card {
             display: none;
             background-color: var(--card-bg);
@@ -186,6 +193,13 @@
             color: var(--text-muted);
             line-height: 1.4;
         }
+
+        .status-msg {
+            margin-top: 0.8rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -211,10 +225,10 @@
             <div class="media-grid" id="mediaGrid"></div>
             <div class="file-info" id="fileSummary"></div>
             
-            <!-- Botón de Envío -->
             <button class="upload-btn" id="uploadBtn">
                 🚀 ENVIAR AL ÁLBUM
             </button>
+            <div class="status-msg" id="statusMsg"></div>
         </div>
 
         <p class="privacy-note">Las fotos y videos que captures serán enviados al álbum digital del evento.</p>
@@ -224,12 +238,12 @@
         const CONFIG = {
             eventName: "Cumpleaños José Daniel",
             eventDate: "2026-09-29",
-            driveFolderId: "XXXXXXXX",
-            eventCode: "",
+            driveFolderId: "1BTCQRh_eZUdGD0wqT6M9yzuR_Kn_1Y9X", // Pón la ID de la carpeta de Drive si aún no la habías pegado
+            scriptUrl: "https://script.google.com/macros/s/AKfycbzudyCCbIlBvof2h4I2EmqQx92aEuvTx_LX_xNuPAIX_-QHeKG1jhP5tcsqtdDhCdDdFg/exec",
             logoEmoji: "✨"
         };
 
-        let selectedFiles = []; // Arreglo ilimitado de archivos
+        let selectedFiles = [];
 
         document.getElementById('eventName').textContent = CONFIG.eventName;
         document.getElementById('eventLogo').textContent = CONFIG.logoEmoji;
@@ -242,6 +256,7 @@
         const fileSummary = document.getElementById('fileSummary');
         const badgeText = document.getElementById('badgeText');
         const uploadBtn = document.getElementById('uploadBtn');
+        const statusMsg = document.getElementById('statusMsg');
 
         document.getElementById('takePhotoBtn').addEventListener('click', () => {
             photoInput.value = '';
@@ -309,6 +324,10 @@
                 <strong>Peso total acumulado:</strong> ${totalSizeMB} MB
             `;
 
+            statusMsg.textContent = '';
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = '🚀 ENVIAR AL ÁLBUM';
+
             previewCard.style.display = 'block';
             previewCard.scrollIntoView({ behavior: 'smooth' });
         }
@@ -321,9 +340,72 @@
             if (e.target.files && e.target.files.length > 0) addFiles(e.target.files);
         });
 
-        // Evento temporal para probar la acción del botón de envío
-        uploadBtn.addEventListener('click', () => {
-            alert(`Listos para enviar ${selectedFiles.length} archivo(s). Procediendo a conectar con Google Drive...`);
+        // Función para convertir archivo a Base64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Evento principal para enviar archivos al backend
+        uploadBtn.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) return;
+
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = '⏳ Subiendo archivos...';
+            statusMsg.style.color = 'var(--text-muted)';
+            statusMsg.textContent = 'Preparando transferencia...';
+
+            try {
+                const filesPayload = [];
+
+                for (let i = 0; i < selectedFiles.length; i++) {
+                    const file = selectedFiles[i];
+                    statusMsg.textContent = `Procesando archivo ${i + 1} de ${selectedFiles.length}...`;
+                    const base64Data = await fileToBase64(file);
+                    
+                    filesPayload.push({
+                        name: file.name || `captura_${Date.now()}_${i}.${file.type.split('/')[1]}`,
+                        type: file.type,
+                        base64: base64Data
+                    });
+                }
+
+                statusMsg.textContent = 'Enviando al Albúm Digital...';
+
+                const response = await fetch(CONFIG.scriptUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        folderId: CONFIG.driveFolderId,
+                        files: filesPayload
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    statusMsg.style.color = 'var(--success)';
+                    statusMsg.textContent = '🎉 ¡Archivos subidos con éxito al álbum!';
+                    uploadBtn.textContent = '✓ ENVIADO';
+                    selectedFiles = []; // Limpiar cola
+                    setTimeout(() => {
+                        previewCard.style.display = 'none';
+                    }, 3000);
+                } else {
+                    throw new Error(result.error || 'Error desconocido al subir.');
+                }
+
+            } catch (err) {
+                console.error(err);
+                statusMsg.style.color = 'var(--danger)';
+                statusMsg.textContent = '❌ Error al subir: ' + err.message;
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = '🚀 REINTENTAR ENVIAR';
+            }
         });
     </script>
 </body>
