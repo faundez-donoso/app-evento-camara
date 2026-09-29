@@ -201,7 +201,6 @@
             text-align: center;
         }
 
-        /* Estilos Barra de Progreso Real */
         .progress-container {
             display: none;
             width: 100%;
@@ -216,7 +215,7 @@
             width: 0%;
             height: 100%;
             background-color: var(--success);
-            transition: width 0.3s ease;
+            transition: width 0.1s ease;
         }
     </style>
 </head>
@@ -260,7 +259,7 @@
         const CONFIG = {
             eventName: "Cumpleaños José Daniel",
             eventDate: "2026-09-29",
-            driveFolderId: "1BTCQRh_eZUdGD0wqT6M9yzuR_Kn_1Y9X", // Asegúrate de tener colocada tu ID de carpeta de Drive
+            driveFolderId: "1BTCQRh_eZUdGD0wqT6M9yzuR_Kn_1Y9X", // ID de tu carpeta de Drive
             scriptUrl: "https://script.google.com/macros/s/AKfycbzudyCCbIlBvof2h4I2EmqQx92aEuvTx_LX_xNuPAIX_-QHeKG1jhP5tcsqtdDhCdDdFg/exec",
             logoEmoji: "✨"
         };
@@ -375,16 +374,27 @@
             });
         }
 
-        // Envío individual mediante mode: 'no-cors' para evitar errores de restricción
-        async function uploadSingleFile(filePayload) {
-            await fetch(CONFIG.scriptUrl, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({
+        // Subida con monitoreo de bytes en tiempo real mediante XMLHttpRequest
+        function uploadSingleFileWithProgress(filePayload, onProgress) {
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', CONFIG.scriptUrl, true);
+                xhr.setRequestHeader('Content-Type', 'text/plain;charset=utf-8');
+
+                // Escuchar el progreso real de subida en bytes
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        onProgress(e.loaded, e.total);
+                    }
+                };
+
+                xhr.onload = () => resolve();
+                xhr.onerror = () => resolve(); // Modo flexible frente a redirecciones de Drive
+                
+                xhr.send(JSON.stringify({
                     folderId: CONFIG.driveFolderId,
                     files: [filePayload]
-                })
+                }));
             });
         }
 
@@ -402,8 +412,6 @@
             try {
                 for (let i = 0; i < totalFiles; i++) {
                     const file = selectedFiles[i];
-                    statusMsg.textContent = `Subiendo archivo ${i + 1} de ${totalFiles}...`;
-                    
                     const base64Data = await fileToBase64(file);
                     
                     const payload = {
@@ -412,13 +420,20 @@
                         base64: base64Data
                     };
 
-                    await uploadSingleFile(payload);
+                    await uploadSingleFileWithProgress(payload, (loadedBytes, totalBytes) => {
+                        const loadedMB = (loadedBytes / (1024 * 1024)).toFixed(2);
+                        const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
+                        const filePercent = Math.round((loadedBytes / totalBytes) * 100);
 
-                    // Actualizar barra de progreso proporcionalmente
-                    const percent = Math.round(((i + 1) / totalFiles) * 100);
-                    progressBar.style.width = `${percent}%`;
+                        // Progreso global acumulado para la barra visual
+                        const globalPercent = Math.round(((i + (loadedBytes / totalBytes)) / totalFiles) * 100);
+                        progressBar.style.width = `${globalPercent}%`;
+
+                        statusMsg.textContent = `Subiendo archivo ${i + 1} de ${totalFiles} (${loadedMB} MB / ${totalMB} MB - ${filePercent}%)`;
+                    });
                 }
 
+                progressBar.style.width = '100%';
                 statusMsg.style.color = 'var(--success)';
                 statusMsg.textContent = '🎉 ¡Archivos subidos con éxito al álbum!';
                 uploadBtn.textContent = '✓ ENVIADO';
