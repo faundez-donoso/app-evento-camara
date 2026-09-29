@@ -215,7 +215,7 @@
             width: 0%;
             height: 100%;
             background-color: var(--success);
-            transition: width 0.1s ease;
+            transition: width 0.15s linear;
         }
     </style>
 </head>
@@ -259,7 +259,7 @@
         const CONFIG = {
             eventName: "Cumpleaños José Daniel",
             eventDate: "2026-09-29",
-            driveFolderId: "1BTCQRh_eZUdGD0wqT6M9yzuR_Kn_1Y9X", // ID de tu carpeta de Drive
+            driveFolderId: "1BTCQRh_eZUdGD0wqT6M9yzuR_Kn_1Y9X", // Asegúrate de colocar el ID de tu carpeta de Drive
             scriptUrl: "https://script.google.com/macros/s/AKfycbzudyCCbIlBvof2h4I2EmqQx92aEuvTx_LX_xNuPAIX_-QHeKG1jhP5tcsqtdDhCdDdFg/exec",
             logoEmoji: "✨"
         };
@@ -374,23 +374,28 @@
             });
         }
 
-        // Subida con monitoreo de bytes en tiempo real mediante XMLHttpRequest
         function uploadSingleFileWithProgress(filePayload, onProgress) {
             return new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
-                xhr.open('POST', CONFIG.scriptUrl, true);
-                xhr.setRequestHeader('Content-Type', 'text/plain;charset=utf-8');
-
-                // Escuchar el progreso real de subida en bytes
-                xhr.upload.onprogress = (e) => {
+                
+                xhr.upload.addEventListener('progress', (e) => {
                     if (e.lengthComputable) {
                         onProgress(e.loaded, e.total);
                     }
-                };
+                });
 
-                xhr.onload = () => resolve();
-                xhr.onerror = () => resolve(); // Modo flexible frente a redirecciones de Drive
-                
+                xhr.addEventListener('readystatechange', () => {
+                    if (xhr.readyState === 4) {
+                        // Estado 4 indica finalización completa de la petición HTTP
+                        resolve();
+                    }
+                });
+
+                xhr.addEventListener('error', () => resolve());
+
+                xhr.open('POST', CONFIG.scriptUrl, true);
+                xhr.setRequestHeader('Content-Type', 'text/plain;charset=utf-8');
+
                 xhr.send(JSON.stringify({
                     folderId: CONFIG.driveFolderId,
                     files: [filePayload]
@@ -412,6 +417,8 @@
             try {
                 for (let i = 0; i < totalFiles; i++) {
                     const file = selectedFiles[i];
+                    statusMsg.textContent = `Preparando archivo ${i + 1} de ${totalFiles}...`;
+                    
                     const base64Data = await fileToBase64(file);
                     
                     const payload = {
@@ -425,11 +432,10 @@
                         const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
                         const filePercent = Math.round((loadedBytes / totalBytes) * 100);
 
-                        // Progreso global acumulado para la barra visual
                         const globalPercent = Math.round(((i + (loadedBytes / totalBytes)) / totalFiles) * 100);
                         progressBar.style.width = `${globalPercent}%`;
 
-                        statusMsg.textContent = `Subiendo archivo ${i + 1} de ${totalFiles} (${loadedMB} MB / ${totalMB} MB - ${filePercent}%)`;
+                        statusMsg.textContent = `Subiendo archivo ${i + 1} de ${totalFiles}: ${loadedMB} MB / ${totalMB} MB (${filePercent}%)`;
                     });
                 }
 
@@ -441,7 +447,7 @@
                 
                 setTimeout(() => {
                     previewCard.style.display = 'none';
-                }, 3000);
+                }, 3500);
 
             } catch (err) {
                 console.error(err);
