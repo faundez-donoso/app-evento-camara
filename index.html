@@ -27,6 +27,7 @@
             justify-content: center;
             min-height: 100vh;
             text-align: center;
+            padding-bottom: 80px; /* Espacio para la barra flotante */
         }
 
         .container {
@@ -111,13 +112,6 @@
             opacity: 0.9;
         }
 
-        .upload-btn:disabled {
-            background-color: #555555;
-            box-shadow: none;
-            cursor: not-allowed;
-            opacity: 0.6;
-        }
-
         .preview-card {
             display: none;
             background-color: var(--card-bg);
@@ -194,11 +188,42 @@
             line-height: 1.4;
         }
 
-        .status-msg {
-            margin-top: 0.8rem;
-            font-size: 0.9rem;
+        /* Indicador Flotante de Segundo Plano */
+        .background-toast {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(30, 30, 30, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            color: var(--text-main);
+            padding: 12px 20px;
+            border-radius: 30px;
+            font-size: 0.85rem;
             font-weight: 500;
-            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            align-items: center;
+            gap: 10px;
+            width: 85%;
+            max-width: 350px;
+            box-sizing: border-box;
+        }
+
+        .toast-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid var(--success);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -228,22 +253,29 @@
             <button class="upload-btn" id="uploadBtn">
                 🚀 ENVIAR AL ÁLBUM
             </button>
-            <div class="status-msg" id="statusMsg"></div>
         </div>
 
         <p class="privacy-note">Las fotos y videos que captures serán enviados al álbum digital del evento.</p>
+    </div>
+
+    <!-- Toast Flotante para Segundo Plano -->
+    <div class="background-toast" id="bgToast">
+        <div class="toast-spinner"></div>
+        <span id="toastMsg">Subiendo archivos en segundo plano...</span>
     </div>
 
     <script>
         const CONFIG = {
             eventName: "Cumpleaños José Daniel",
             eventDate: "2026-09-29",
-            driveFolderId: "1BTCQRh_eZUdGD0wqT6M9yzuR_Kn_1Y9X", // Pón aquí el ID de tu carpeta de Drive
+            driveFolderId: "1BTCQRh_eZUdGD0wqT6M9yzuR_Kn_1Y9X", // Asegúrate de colocar la ID de tu carpeta de Drive
             scriptUrl: "https://script.google.com/macros/s/AKfycbzudyCCbIlBvof2h4I2EmqQx92aEuvTx_LX_xNuPAIX_-QHeKG1jhP5tcsqtdDhCdDdFg/exec",
             logoEmoji: "✨"
         };
 
         let selectedFiles = [];
+        let uploadQueue = [];
+        let isUploading = false;
 
         document.getElementById('eventName').textContent = CONFIG.eventName;
         document.getElementById('eventLogo').textContent = CONFIG.logoEmoji;
@@ -256,7 +288,9 @@
         const fileSummary = document.getElementById('fileSummary');
         const badgeText = document.getElementById('badgeText');
         const uploadBtn = document.getElementById('uploadBtn');
-        const statusMsg = document.getElementById('statusMsg');
+
+        const bgToast = document.getElementById('bgToast');
+        const toastMsg = document.getElementById('toastMsg');
 
         document.getElementById('takePhotoBtn').addEventListener('click', () => {
             photoInput.value = '';
@@ -324,10 +358,7 @@
                 <strong>Peso total acumulado:</strong> ${totalSizeMB} MB
             `;
 
-            statusMsg.textContent = '';
-            uploadBtn.disabled = false;
             uploadBtn.textContent = '🚀 ENVIAR AL ÁLBUM';
-
             previewCard.style.display = 'block';
             previewCard.scrollIntoView({ behavior: 'smooth' });
         }
@@ -349,55 +380,65 @@
             });
         }
 
-        uploadBtn.addEventListener('click', async () => {
+        // Agregar archivos seleccionados a la cola de segundo plano
+        uploadBtn.addEventListener('click', () => {
             if (selectedFiles.length === 0) return;
 
-            uploadBtn.disabled = true;
-            uploadBtn.textContent = '⏳ Enviando al álbum...';
-            statusMsg.style.color = 'var(--text-muted)';
+            // Pasar archivos de la seleccion a la cola general
+            uploadQueue = uploadQueue.concat(selectedFiles);
+            selectedFiles = []; // Limpiar vista previa
+            previewCard.style.display = 'none'; // Ocultar tarjeta inmediatamente
 
-            try {
-                for (let i = 0; i < selectedFiles.length; i++) {
-                    const file = selectedFiles[i];
-                    statusMsg.textContent = `Enviando archivo ${i + 1} de ${selectedFiles.length}...`;
-                    
+            // Iniciar o continuar proceso de envio en segundo plano
+            processUploadQueue();
+        });
+
+        async function processUploadQueue() {
+            if (isUploading || uploadQueue.length === 0) return;
+
+            isUploading = true;
+            bgToast.style.display = 'flex';
+
+            while (uploadQueue.length > 0) {
+                const totalInQueue = uploadQueue.length;
+                toastMsg.textContent = `Enviando al álbum... (${totalInQueue} ${totalInQueue === 1 ? 'pendiente' : 'pendientes'})`;
+
+                const file = uploadQueue[0];
+
+                try {
                     const base64Data = await fileToBase64(file);
                     
                     const payload = {
                         folderId: CONFIG.driveFolderId,
                         files: [{
-                            name: file.name || `captura_${Date.now()}_${i}.${file.type.split('/')[1] || 'jpg'}`,
+                            name: file.name || `captura_${Date.now()}.${file.type.split('/')[1] || 'jpg'}`,
                             type: file.type,
                             base64: base64Data
                         }]
                     };
 
-                    // Petición directa y robusta con fetch no-cors
                     await fetch(CONFIG.scriptUrl, {
                         method: 'POST',
                         mode: 'no-cors',
                         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                         body: JSON.stringify(payload)
                     });
+
+                } catch (err) {
+                    console.error('Error al enviar un archivo de la cola:', err);
                 }
 
-                statusMsg.style.color = 'var(--success)';
-                statusMsg.textContent = '🎉 ¡Archivos enviados con éxito al álbum!';
-                uploadBtn.textContent = '✓ ENVIADO';
-                selectedFiles = [];
-
-                setTimeout(() => {
-                    previewCard.style.display = 'none';
-                }, 3000);
-
-            } catch (err) {
-                console.error(err);
-                statusMsg.style.color = 'var(--danger)';
-                statusMsg.textContent = '❌ Ocurrió un inconveniente al enviar.';
-                uploadBtn.disabled = false;
-                uploadBtn.textContent = '🚀 REINTENTAR ENVIAR';
+                // Remover el archivo procesado de la cola
+                uploadQueue.shift();
             }
-        });
+
+            // Finalizado
+            toastMsg.textContent = '🎉 ¡Todos los archivos fueron enviados!';
+            setTimeout(() => {
+                bgToast.style.display = 'none';
+                isUploading = false;
+            }, 3000);
+        }
     </script>
 </body>
 </html>
