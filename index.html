@@ -12,6 +12,7 @@
             --text-muted: #a0a0a0;
             --accent: #ffffff;
             --success: #34c759;
+            --danger: #ff3b30;
         }
 
         body {
@@ -100,33 +101,52 @@
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
         }
 
-        .media-container {
+        .media-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .media-item {
+            position: relative;
             width: 100%;
             border-radius: 12px;
             overflow: hidden;
             background-color: #000;
+        }
+
+        .media-item img, .media-item video {
+            width: 100%;
+            height: auto;
+            max-height: 40vh;
+            border-radius: 12px;
+            display: block;
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            font-size: 14px;
+            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 1rem;
-        }
-
-        .media-container img, .media-container video {
-            width: 100%;
-            height: auto;
-            max-height: 50vh;
-            border-radius: 12px;
-            display: block;
+            z-index: 10;
         }
 
         .file-info {
             font-size: 0.85rem;
             color: var(--text-muted);
             line-height: 1.6;
-        }
-
-        .file-info strong {
-            color: var(--text-main);
+            margin-top: 0.5rem;
         }
 
         .badge-original {
@@ -154,25 +174,23 @@
         <h1 id="eventName">Cargando...</h1>
         <div class="subtitle">Captura el momento</div>
         
-        <!-- Input 1: Cámara de foto directa -->
+        <!-- Inputs limpios para permitir re-selección de fotos -->
         <input type="file" id="photoInput" accept="image/*" capture="environment" style="display: none;">
-        
-        <!-- Input 2: Archivo original sin compresión para videos 1080p/4K completos -->
-        <input type="file" id="fileInput" accept="image/*,video/*" style="display: none;">
+        <input type="file" id="fileInput" accept="image/*,video/*" multiple style="display: none;">
 
         <div class="btn-group">
             <button class="camera-btn" id="takePhotoBtn">
                 📸 TOMAR FOTO NATIVA
             </button>
             <button class="camera-btn secondary" id="selectMediaBtn">
-                🎥 SUBIR VIDEO 1080p / FOTO
+                📁 ELEGIR DE GALERÍA (FOTO/VIDEO)
             </button>
         </div>
 
         <div class="preview-card" id="previewCard">
-            <span class="badge-original">✓ Archivo Original Capturado (1080p+)</span>
-            <div class="media-container" id="mediaContainer"></div>
-            <div class="file-info" id="fileInfo"></div>
+            <span class="badge-original" id="badgeText">✓ 0/10 Archivos Seleccionados</span>
+            <div class="media-grid" id="mediaGrid"></div>
+            <div class="file-info" id="fileSummary"></div>
         </div>
 
         <p class="privacy-note">Las fotos y videos que captures serán enviados al álbum digital del evento.</p>
@@ -187,6 +205,9 @@
             logoEmoji: "✨"
         };
 
+        const MAX_FILES = 10;
+        let selectedFiles = []; // Arreglo global acumulativo
+
         document.getElementById('eventName').textContent = CONFIG.eventName;
         document.getElementById('eventLogo').textContent = CONFIG.logoEmoji;
         document.title = CONFIG.eventName;
@@ -194,39 +215,90 @@
         const photoInput = document.getElementById('photoInput');
         const fileInput = document.getElementById('fileInput');
         const previewCard = document.getElementById('previewCard');
-        const mediaContainer = document.getElementById('mediaContainer');
-        const fileInfo = document.getElementById('fileInfo');
+        const mediaGrid = document.getElementById('mediaGrid');
+        const fileSummary = document.getElementById('fileSummary');
+        const badgeText = document.getElementById('badgeText');
 
         document.getElementById('takePhotoBtn').addEventListener('click', () => {
+            if (selectedFiles.length >= MAX_FILES) {
+                alert(`Has alcanzado el límite máximo de ${MAX_FILES} archivos.`);
+                return;
+            }
+            photoInput.value = ''; // Reset para activar cambio siempre
             photoInput.click();
         });
 
         document.getElementById('selectMediaBtn').addEventListener('click', () => {
+            if (selectedFiles.length >= MAX_FILES) {
+                alert(`Has alcanzado el límite máximo de ${MAX_FILES} archivos.`);
+                return;
+            }
+            fileInput.value = ''; // Reset para activar cambio siempre
             fileInput.click();
         });
 
-        function handleFileSelection(file) {
-            mediaContainer.innerHTML = '';
-            const objectUrl = URL.createObjectURL(file);
+        function addFiles(newFiles) {
+            const incoming = Array.from(newFiles);
+            const availableSlots = MAX_FILES - selectedFiles.length;
 
-            if (file.type.startsWith('image/')) {
-                const img = document.createElement('img');
-                img.src = objectUrl;
-                mediaContainer.appendChild(img);
-            } else if (file.type.startsWith('video/')) {
-                const video = document.createElement('video');
-                video.src = objectUrl;
-                video.controls = true;
-                video.playsInline = true;
-                mediaContainer.appendChild(video);
+            if (incoming.length > availableSlots) {
+                alert(`Solo puedes agregar ${availableSlots} archivo(s) más. Se aplicará el límite de ${MAX_FILES} archivos en total.`);
             }
 
-            const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+            const filesToAdd = incoming.slice(0, availableSlots);
+            selectedFiles = selectedFiles.concat(filesToAdd);
+            renderPreview();
+        }
 
-            fileInfo.innerHTML = `
-                <strong>Archivo:</strong> ${file.name}<br>
-                <strong>Tipo:</strong> ${file.type || 'Desconocido'}<br>
-                <strong>Tamaño original:</strong> ${sizeInMB} MB
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            renderPreview();
+        }
+
+        function renderPreview() {
+            if (selectedFiles.length === 0) {
+                previewCard.style.display = 'none';
+                return;
+            }
+
+            mediaGrid.innerHTML = '';
+            let totalSizeBytes = 0;
+
+            selectedFiles.forEach((file, index) => {
+                totalSizeBytes += file.size;
+                const objectUrl = URL.createObjectURL(file);
+                
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'media-item';
+
+                // Botón para eliminar archivo individual
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-btn';
+                removeBtn.textContent = '✕';
+                removeBtn.onclick = () => removeFile(index);
+                itemDiv.appendChild(removeBtn);
+
+                if (file.type.startsWith('image/')) {
+                    const img = document.createElement('img');
+                    img.src = objectUrl;
+                    itemDiv.appendChild(img);
+                } else if (file.type.startsWith('video/')) {
+                    const video = document.createElement('video');
+                    video.src = objectUrl;
+                    video.controls = true;
+                    video.playsInline = true;
+                    itemDiv.appendChild(video);
+                }
+
+                mediaGrid.appendChild(itemDiv);
+            });
+
+            const totalSizeMB = (totalSizeBytes / (1024 * 1024)).toFixed(2);
+            badgeText.textContent = `✓ ${selectedFiles.length}/${MAX_FILES} Archivos listos (Calidad Original)`;
+
+            fileSummary.innerHTML = `
+                <strong>Archivos en cola:</strong> ${selectedFiles.length} de ${MAX_FILES}<br>
+                <strong>Peso total acumulado:</strong> ${totalSizeMB} MB
             `;
 
             previewCard.style.display = 'block';
@@ -234,11 +306,11 @@
         }
 
         photoInput.addEventListener('change', (e) => {
-            if (e.target.files && e.target.files[0]) handleFileSelection(e.target.files[0]);
+            if (e.target.files && e.target.files.length > 0) addFiles(e.target.files);
         });
 
         fileInput.addEventListener('change', (e) => {
-            if (e.target.files && e.target.files[0]) handleFileSelection(e.target.files[0]);
+            if (e.target.files && e.target.files.length > 0) addFiles(e.target.files);
         });
     </script>
 </body>
