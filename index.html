@@ -2,33 +2,137 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <!-- Viewport estricto para evitar zoom accidental al tocar botones en móviles -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Evento - Captura el momento</title>
+    <title>Evento</title>
     <style>
+        /* Variables de diseño (Dark Mode elegante) */
+        :root {
+            --bg-color: #121212;
+            --text-main: #ffffff;
+            --text-muted: #a0a0a0;
+            --accent: #ffffff;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
             margin: 0;
-            background-color: #1a1a1a;
-            color: #ffffff;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
             text-align: center;
         }
-        h1 {
-            font-size: 1.5rem;
-            margin-bottom: 10px;
+
+        .container {
+            padding: 2rem;
+            max-width: 400px;
+            width: 100%;
+            box-sizing: border-box;
         }
-        p {
-            color: #aaaaaa;
+
+        .logo {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            color: var(--text-main);
+            font-weight: 300;
+        }
+
+        .description {
+            font-size: 1rem;
+            color: var(--text-muted);
+            margin-bottom: 3rem;
+            line-height: 1.5;
+        }
+
+        /* Botón gigante y fácil de pulsar */
+        .camera-btn {
+            background-color: var(--accent);
+            color: var(--bg-color);
+            border: none;
+            border-radius: 50px;
+            padding: 1.2rem 2rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(255, 255, 255, 0.15);
+            transition: transform 0.2s ease, opacity 0.2s;
+            -webkit-tap-highlight-color: transparent; /* Quita el destello azul en Android */
+        }
+
+        .camera-btn:active {
+            transform: scale(0.96);
+            opacity: 0.9;
+        }
+
+        .privacy-note {
+            margin-top: 2rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.4;
         }
     </style>
 </head>
 <body>
-    <div>
-        <h1>📸 App de Evento</h1>
-        <p>Versión 1.0 - Enlace de prueba exitoso</p>
+    <div class="container">
+        <div class="logo" id="eventLogo">✨</div>
+        <h1 id="eventName">Cargando...</h1>
+        <div class="subtitle">Captura el momento</div>
+        
+        <p class="description">Comparte tus recuerdos con todos nosotros.</p>
+        
+        <button class="camera-btn" id="openCameraBtn">
+            <!-- Icono de cámara SVG nativo -->
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            ABRIR CÁMARA
+        </button>
+
+        <p class="privacy-note">Las fotos y videos que captures serán enviados al álbum digital del evento.</p>
     </div>
+
+    <script>
+        // Configuración centralizada
+        const CONFIG = {
+            eventName: "Cumpleaños José Daniel",
+            eventDate: "2026-09-29",
+            driveFolderId: "XXXXXXXX",
+            eventCode: "",
+            logoEmoji: "✨" // Puedes cambiarlo por 🎂, 🥂, 💍, etc.
+        };
+
+        // Inyectar datos en la interfaz
+        document.getElementById('eventName').textContent = CONFIG.eventName;
+        document.getElementById('eventLogo').textContent = CONFIG.logoEmoji;
+        document.title = CONFIG.eventName;
+
+        // Comprobación del botón (la cámara real vendrá en la etapa 3)
+        document.getElementById('openCameraBtn').addEventListener('click', () => {
+            alert("¡Interfaz lista! En la próxima etapa conectaremos este botón a la cámara nativa de tu teléfono.");
+        });
+    </script>
 </body>
 </html>
