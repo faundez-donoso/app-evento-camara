@@ -28,7 +28,7 @@
             justify-content: center;
             min-height: 100vh;
             text-align: center;
-            padding-bottom: 80px;
+            padding-bottom: 90px;
         }
 
         .container {
@@ -215,29 +215,46 @@
             left: 50%;
             transform: translateX(-50%);
             background-color: rgba(30, 30, 30, 0.95);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(10px);
             color: var(--text-main);
-            padding: 12px 20px;
-            border-radius: 30px;
-            font-size: 0.85rem;
-            font-weight: 500;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            padding: 12px 18px;
+            border-radius: 20px;
+            font-size: 0.82rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
             z-index: 999;
             align-items: center;
-            gap: 10px;
-            width: 85%;
-            max-width: 350px;
+            gap: 12px;
+            width: 90%;
+            max-width: 360px;
             box-sizing: border-box;
+            text-align: left;
         }
 
         .toast-spinner {
-            width: 14px;
-            height: 14px;
+            width: 16px;
+            height: 16px;
             border: 2px solid rgba(255, 255, 255, 0.3);
             border-top: 2px solid var(--success);
             border-radius: 50%;
             animation: spin 1s linear infinite;
+            flex-shrink: 0;
+        }
+
+        .toast-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .toast-warning {
+            font-size: 0.75rem;
+            color: #ffcc00;
         }
 
         @keyframes spin {
@@ -280,9 +297,13 @@
         <p class="privacy-note">Las fotos y videos que captures serán enviados al álbum digital del evento.</p>
     </div>
 
+    <!-- Indicador flotante con advertencia explícita -->
     <div class="background-toast" id="bgToast">
-        <div class="toast-spinner"></div>
-        <span id="toastMsg">Subiendo archivos en segundo plano...</span>
+        <div class="toast-spinner" id="toastSpinner"></div>
+        <div class="toast-content">
+            <span class="toast-title" id="toastMsg">Subiendo archivos en segundo plano...</span>
+            <span class="toast-warning" id="toastWarning">⚠️ Puedes cambiar de pestaña, pero NO cierres la página web hasta terminar.</span>
+        </div>
     </div>
 
     <script>
@@ -313,6 +334,17 @@
 
         const bgToast = document.getElementById('bgToast');
         const toastMsg = document.getElementById('toastMsg');
+        const toastWarning = document.getElementById('toastWarning');
+        const toastSpinner = document.getElementById('toastSpinner');
+
+        // ADVERTENCIA DEL NAVEGADOR: Bloquea el cierre accidental de la pestaña durante subidas activas
+        window.addEventListener('beforeunload', (event) => {
+            if (isUploading || uploadQueue.length > 0) {
+                event.preventDefault();
+                event.returnValue = 'Hay archivos subiéndose al álbum. Si cierras la pestaña se cancelará el envío.';
+                return event.returnValue;
+            }
+        });
 
         document.getElementById('takePhotoBtn').addEventListener('click', () => {
             photoInput.value = '';
@@ -421,20 +453,14 @@
             processUploadQueue();
         }
 
-        // OPCIÓN 1: Solo enviar al álbum
         uploadBtn.addEventListener('click', () => {
             if (selectedFiles.length === 0) return;
             sendFilesToQueue();
         });
 
-        // OPCIÓN 2: Descargar en el celular y enviar al álbum
         downloadUploadBtn.addEventListener('click', () => {
             if (selectedFiles.length === 0) return;
-
-            // Disparar la descarga local para cada archivo
             selectedFiles.forEach(file => triggerDownload(file));
-
-            // Enviar a la cola de subida en segundo plano
             sendFilesToQueue();
         });
 
@@ -443,10 +469,12 @@
 
             isUploading = true;
             bgToast.style.display = 'flex';
+            toastSpinner.style.display = 'block';
+            toastWarning.style.display = 'block';
 
             while (uploadQueue.length > 0) {
                 const totalInQueue = uploadQueue.length;
-                toastMsg.textContent = `Enviando al álbum... (${totalInQueue} ${totalInQueue === 1 ? 'pendiente' : 'pendientes'})`;
+                toastMsg.textContent = `Enviando al álbum (${totalInQueue} ${totalInQueue === 1 ? 'pendiente' : 'pendientes'})...`;
 
                 const file = uploadQueue[0];
 
@@ -476,11 +504,15 @@
                 uploadQueue.shift();
             }
 
+            // Al finalizar todas las subidas
+            toastSpinner.style.display = 'none';
+            toastWarning.style.display = 'none';
             toastMsg.textContent = '🎉 ¡Todos los archivos fueron enviados!';
+
             setTimeout(() => {
                 bgToast.style.display = 'none';
                 isUploading = false;
-            }, 3000);
+            }, 3500);
         }
     </script>
 </body>
